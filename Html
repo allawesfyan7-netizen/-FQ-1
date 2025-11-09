@@ -1,0 +1,644 @@
+
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0095ff">
+    <title>المشغل FQ&1 - مشغل M3U وIPTV الاحترافي</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- إضافة HLS.js لدعم تشغيل M3U8 -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <!-- خلفية ديناميكية -->
+    <div class="dynamic-background">
+        <div class="bg-particle" style="--i:1"></div>
+        <div class="bg-particle" style="--i:2"></div>
+        <div class="bg-particle" style="--i:3"></div>
+        <div class="bg-particle" style="--i:4"></div>
+        <div class="bg-particle" style="--i:5"></div>
+    </div>
+
+    <!-- شاشة التحميل -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <div class="logo-container">
+                    <i class="fas fa-satellite-dish"></i>
+                    <div class="logo-orbits">
+                        <div class="orbit orbit-1"></div>
+                        <div class="orbit orbit-2"></div>
+                        <div class="orbit orbit-3"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="loading-spinner">
+                <div class="spinner-ring"></div>
+                <div class="spinner-dot"></div>
+            </div>
+            <h2 class="loading-title">المشغل FQ&1</h2>
+            <p class="loading-subtitle">جاري تحميل القنوات والإعدادات...</p>
+            <div class="loading-progress">
+                <div class="loading-progress-bar" id="loadingProgress">
+                    <div class="progress-glow"></div>
+                </div>
+            </div>
+            <div class="app-info">
+                <p>© 2024 المشغل FQ&1 - جميع الحقوق محفوظة</p>
+                <p class="channel-link">قناتنا على التليجرام: https://t.me/F_TEA_M</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- الشاشة الرئيسية -->
+    <div id="homeScreen" class="screen">
+        <header class="app-header">
+            <div class="header-content">
+                <div class="app-logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-satellite-dish"></i>
+                    </div>
+                </div>
+                <h1 class="app-title">المشغل FQ&1</h1>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="searchBtn" title="بحث">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button class="icon-btn" id="localFilesBtn" title="الملفات المحلية">
+                    <i class="fas fa-folder"></i>
+                </button>
+                <button class="icon-btn" id="externalUrlBtn" title="إدخال رابط فيديو">
+                    <i class="fas fa-link"></i>
+                </button>
+                <button class="icon-btn" id="refreshBtn" title="تحديث">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- شريط المصادر السريعة -->
+        <div class="quick-access-bar scroll-container">
+            <div class="quick-access-item active" data-action="all">
+                <div class="quick-icon">
+                    <i class="fas fa-tv"></i>
+                </div>
+                <span class="quick-label">جميع القنوات</span>
+                <div class="quick-glow"></div>
+            </div>
+            <div class="quick-access-item" data-action="favorites">
+                <div class="quick-icon">
+                    <i class="fas fa-heart"></i>
+                </div>
+                <span class="quick-label">المفضلة</span>
+                <div class="quick-glow"></div>
+            </div>
+            <div class="quick-access-item" data-action="local">
+                <div class="quick-icon">
+                    <i class="fas fa-film"></i>
+                </div>
+                <span class="quick-label">ملفات محلية</span>
+                <div class="quick-glow"></div>
+            </div>
+            <div class="quick-access-item" data-action="sports">
+                <div class="quick-icon">
+                    <i class="fas fa-futbol"></i>
+                </div>
+                <span class="quick-label">الرياضة</span>
+                <div class="quick-glow"></div>
+            </div>
+            <div class="quick-access-item" data-action="movies">
+                <div class="quick-icon">
+                    <i class="fas fa-film"></i>
+                </div>
+                <span class="quick-label">أفلام</span>
+                <div class="quick-glow"></div>
+            </div>
+            <div class="quick-access-item" data-action="music">
+                <div class="quick-icon">
+                    <i class="fas fa-music"></i>
+                </div>
+                <span class="quick-label">موسيقى</span>
+                <div class="quick-glow"></div>
+            </div>
+        </div>
+
+        <!-- القنوات المميزة -->
+        <div class="section-header">
+            <h2 class="section-title">
+                <span class="title-icon">
+                    <i class="fas fa-crown"></i>
+                </span>
+                القنوات المميزة
+            </h2>
+            <div class="section-actions">
+                <button class="icon-btn" id="viewAllChannels">
+                    <i class="fas fa-list"></i>
+                    <span>عرض الكل</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="channels-grid" id="featuredChannels">
+            <!-- سيتم ملؤها ديناميكياً -->
+        </div>
+
+        <!-- أحدث الإضافات -->
+        <div class="section-header">
+            <h2 class="section-title">
+                <span class="title-icon">
+                    <i class="fas fa-bolt"></i>
+                </span>
+                أحدث القنوات
+            </h2>
+            <div class="section-actions">
+                <button class="icon-btn" id="refreshNew">
+                    <i class="fas fa-redo"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="channels-grid" id="newChannels">
+            <!-- سيتم ملؤها ديناميكياً -->
+        </div>
+    </div>
+
+    <!-- شاشة التشغيل -->
+    <div id="playerScreen" class="screen">
+        <div class="player-container">
+            <div class="player-backdrop">
+                <div class="backdrop-overlay"></div>
+            </div>
+            <video id="videoPlayer" playsinline webkit-playsinline controlslist="nodownload">
+                المتصفح لا يدعم تشغيل الفيديو.
+            </video>
+            
+            <div class="player-controls">
+                <div class="control-top">
+                    <button class="control-btn" id="backBtn" title="رجوع">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="control-btn" id="previousChannel" title="القناة السابقة">
+                        <i class="fas fa-step-backward"></i>
+                    </button>
+                    <h3 class="channel-title" id="playerChannelTitle">اسم القناة</h3>
+                    <button class="control-btn" id="nextChannel" title="القناة التالية">
+                        <i class="fas fa-step-forward"></i>
+                    </button>
+                    <button class="control-btn" id="favoriteBtn" title="إضافة إلى المفضلة">
+                        <i class="far fa-heart"></i>
+                    </button>
+                </div>
+                
+                <div class="control-center">
+                    <button class="control-btn large" id="rewindBtn" title="تراجع 10 ثواني">
+                        <i class="fas fa-backward"></i>
+                    </button>
+                    <button class="control-btn large play-btn" id="playPauseBtn" title="تشغيل/إيقاف">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="control-btn large" id="forwardBtn" title="تقديم 10 ثواني">
+                        <i class="fas fa-forward"></i>
+                    </button>
+                </div>
+                
+                <div class="control-bottom">
+                    <div class="progress-container">
+                        <span class="time-display" id="currentTime">0:00</span>
+                        <div class="progress-bar" id="progressBar">
+                            <div class="progress-fill" id="progressFill">
+                                <div class="progress-glow"></div>
+                            </div>
+                            <div class="progress-handle" id="progressHandle"></div>
+                        </div>
+                        <span class="time-display" id="totalTime">0:00</span>
+                    </div>
+                    
+                    <div class="secondary-controls">
+                        <div class="volume-control">
+                            <button class="control-btn" id="volumeBtn" title="الصوت">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                            <div class="volume-slider-container">
+                                <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="100">
+                            </div>
+                        </div>
+                        <button class="control-btn" id="qualityBtn" title="جودة الفيديو">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <button class="control-btn" id="fullscreenBtn" title="ملء الشاشة">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- عناصر تحكم للشاشات الصغيرة -->
+            <div class="mobile-controls">
+                <button class="mobile-control-btn" id="mobilePlayPause">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="mobile-control-btn" id="mobileBack">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- مؤشر التحميل -->
+            <div class="video-loading" id="videoLoading">
+                <div class="loading-spinner"></div>
+                <p>جاري التحميل...</p>
+            </div>
+
+            <!-- معلومات البث -->
+            <div class="stream-info" id="streamInfo">
+                <div class="stream-quality" id="streamQuality">جودة: تلقائي</div>
+                <div class="stream-buffer" id="streamBuffer">مخزن مؤقت: 0%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- شاشة القنوات -->
+    <div id="channelsScreen" class="screen">
+        <div class="app-header">
+            <div class="header-content">
+                <button class="icon-btn" id="channelsBackBtn">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <h1 class="app-title" id="channelsTitle">جميع القنوات</h1>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="channelsSearchBtn">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button class="icon-btn" id="channelsFilterBtn">
+                    <i class="fas fa-filter"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="channels-container">
+            <div class="channels-grid scroll-container" id="channelsGrid">
+                <!-- سيتم ملؤها ديناميكياً -->
+            </div>
+        </div>
+    </div>
+
+    <!-- شاشة المفضلة -->
+    <div id="favoritesScreen" class="screen">
+        <div class="app-header">
+            <div class="header-content">
+                <button class="icon-btn" id="favoritesBackBtn">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <h1 class="app-title">المفضلة</h1>
+            </div>
+        </div>
+        
+        <div class="channels-container">
+            <div class="channels-grid" id="favoritesGrid">
+                <!-- سيتم ملؤها ديناميكياً -->
+            </div>
+        </div>
+    </div>
+
+    <!-- شاشة الملفات المحلية -->
+    <div id="localFilesScreen" class="screen">
+        <div class="app-header">
+            <div class="header-content">
+                <button class="icon-btn" id="localFilesBackBtn">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <h1 class="app-title">الملفات المحلية</h1>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="refreshLocalFiles">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="icon-btn" id="selectFolderBtn">
+                    <i class="fas fa-folder-open"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="local-files-container">
+            <div class="files-header">
+                <div class="storage-info">
+                    <div class="storage-progress">
+                        <div class="storage-fill" id="storageFill"></div>
+                    </div>
+                    <span class="storage-text" id="storageText">جاري تحميل معلومات التخزين...</span>
+                </div>
+                <div class="file-actions">
+                    <button class="btn btn-secondary" id="scanVideos">
+                        <i class="fas fa-search"></i> مسح الفيديوهات
+                    </button>
+                </div>
+            </div>
+            
+            <div class="files-grid" id="localFilesGrid">
+                <!-- سيتم ملؤها ديناميكياً -->
+            </div>
+            
+            <div class="empty-state" id="localFilesEmpty">
+                <i class="fas fa-folder-open"></i>
+                <h3>لا توجد ملفات فيديو</h3>
+                <p>استخدم زر المجلد لاستعراض الملفات أو زر المسح للعثور على الفيديوهات تلقائياً</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- شاشة الإعدادات -->
+    <div id="settingsScreen" class="screen">
+        <div class="app-header">
+            <div class="header-content">
+                <button class="icon-btn" id="settingsBackBtn">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <h1 class="app-title">الإعدادات</h1>
+            </div>
+        </div>
+        
+        <div class="settings-container">
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-play-circle"></i>
+                        إعدادات التشغيل
+                    </h2>
+                </div>
+                <div class="settings-card">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">جودة البث التلقائية</h3>
+                            <p class="setting-description">ضبط الجودة تلقائياً حسب سرعة الإنترنت</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoQuality" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">التشغيل التلقائي</h3>
+                            <p class="setting-description">تشغيل القنوات تلقائياً عند التحديد</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoPlay" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">حفظ النقاط</h3>
+                            <p class="setting-description">حفظ نقطة التوقف عند تغيير القنوات</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="savePosition" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">دعم HLS التلقائي</h3>
+                            <p class="setting-description">تفعيل دعم تلقائي لملفات M3U8</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autoHLS" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-palette"></i>
+                        المظهر والتصميم
+                    </h2>
+                </div>
+                <div class="settings-card">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">الوضع الليلي</h3>
+                            <p class="setting-description">تفعيل الوضع المظلم للراحة البصرية</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="darkMode">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">لون السمة</h3>
+                            <p class="setting-description">اختر اللون الأساسي للتطبيق</p>
+                        </div>
+                        <div class="color-picker">
+                            <div class="color-option active" data-color="#0095ff">
+                                <div class="color-preview" style="background: #0095ff"></div>
+                            </div>
+                            <div class="color-option" data-color="#ff6b6b">
+                                <div class="color-preview" style="background: #ff6b6b"></div>
+                            </div>
+                            <div class="color-option" data-color="#4ecdc4">
+                                <div class="color-preview" style="background: #4ecdc4"></div>
+                            </div>
+                            <div class="color-option" data-color="#ffd166">
+                                <div class="color-preview" style="background: #ffd166"></div>
+                            </div>
+                            <div class="color-option" data-color="#9b5de5">
+                                <div class="color-preview" style="background: #9b5de5"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-database"></i>
+                        إدارة التخزين
+                    </h2>
+                </div>
+                <div class="settings-card">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">مسح ذاكرة التخزين</h3>
+                            <p class="setting-description">حذف جميع البيانات والإعدادات المحفوظة</p>
+                        </div>
+                        <button class="btn btn-danger" id="clearStorage">
+                            <i class="fas fa-trash"></i> مسح التخزين
+                        </button>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3 class="setting-title">تصدير الإعدادات</h3>
+                            <p class="setting-description">حفظ نسخة احتياطية من إعداداتك</p>
+                        </div>
+                        <button class="btn btn-secondary" id="exportSettings">
+                            <i class="fas fa-download"></i> تصدير
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- شريط التنقل السفلي -->
+    <nav class="bottom-nav">
+        <div class="nav-indicator"></div>
+        <div class="nav-item active" data-screen="homeScreen">
+            <div class="nav-icon">
+                <i class="fas fa-home"></i>
+            </div>
+            <span class="nav-label">الرئيسية</span>
+        </div>
+        <div class="nav-item" data-screen="channelsScreen">
+            <div class="nav-icon">
+                <i class="fas fa-tv"></i>
+            </div>
+            <span class="nav-label">القنوات</span>
+        </div>
+        <div class="nav-item" data-screen="localFilesScreen">
+            <div class="nav-icon">
+                <i class="fas fa-film"></i>
+            </div>
+            <span class="nav-label">محلي</span>
+        </div>
+        <div class="nav-item" data-screen="favoritesScreen">
+            <div class="nav-icon">
+                <i class="fas fa-heart"></i>
+            </div>
+            <span class="nav-label">المفضلة</span>
+        </div>
+        <div class="nav-item" data-screen="settingsScreen">
+            <div class="nav-icon">
+                <i class="fas fa-cog"></i>
+            </div>
+            <span class="nav-label">الإعدادات</span>
+        </div>
+    </nav>
+
+    <!-- الإشعارات -->
+    <div id="notification" class="notification">
+        <div class="notification-content">
+            <div class="notification-icon">
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div class="notification-text">
+                <span class="notification-title" id="notificationTitle">إشعار</span>
+                <div class="notification-message" id="notificationMessage">رسالة الإشعار</div>
+            </div>
+            <button class="notification-close" id="notificationClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="notification-progress"></div>
+    </div>
+
+    <!-- نافذة إدخال الرابط -->
+    <div id="urlModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-link"></i> إدخال رابط الفيديو</h3>
+                <button class="modal-close" id="urlModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="videoUrl"><i class="fas fa-globe"></i> رابط الفيديو:</label>
+                    <input type="text" id="videoUrl" placeholder="https://example.com/video.mp4 أو .m3u8" class="url-input">
+                </div>
+                <div class="input-group">
+                    <label for="videoTitle"><i class="fas fa-heading"></i> اسم الفيديو:</label>
+                    <input type="text" id="videoTitle" placeholder="اسم الفيديو (اختياري)" class="url-input">
+                </div>
+                <div class="url-examples">
+                    <h4>أمثلة على الروابط المدعومة:</h4>
+                    <ul>
+                        <li>• ملفات MP4: https://example.com/video.mp4</li>
+                        <li>• تدفقات M3U8: https://example.com/stream.m3u8</li>
+                        <li>• روابط HLS: https://example.com/playlist.m3u8</li>
+                        <li>• قنوات IPTV: https://example.com/playlist.m3u</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="urlModalCancel">إلغاء</button>
+                <button class="btn btn-primary" id="urlModalPlay">
+                    <i class="fas fa-play"></i> تشغيل
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة الجودة -->
+    <div id="qualityModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> إعدادات الجودة</h3>
+                <button class="modal-close" id="qualityModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="quality-options">
+                    <div class="quality-option active" data-quality="auto">
+                        <i class="fas fa-magic"></i>
+                        <span>تلقائي</span>
+                    </div>
+                    <div class="quality-option" data-quality="1080">
+                        <i class="fas fa-hd-video"></i>
+                        <span>1080p (Full HD)</span>
+                    </div>
+                    <div class="quality-option" data-quality="720">
+                        <i class="fas fa-video"></i>
+                        <span>720p (HD)</span>
+                    </div>
+                    <div class="quality-option" data-quality="480">
+                        <i class="fas fa-film"></i>
+                        <span>480p (SD)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="qualityModalApply">تطبيق</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- لوحة البحث -->
+    <div id="searchPanel" class="search-panel">
+        <div class="search-header">
+            <div class="search-input-container">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" id="searchInput" class="search-input" placeholder="ابحث عن قناة أو فيديو...">
+                <button class="search-clear" id="searchClear">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <button class="search-close" id="searchClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="search-results" id="searchResults">
+            <!-- سيتم ملؤها ديناميكياً -->
+        </div>
+    </div>
+
+    <!-- مدخل الملفات المخفي -->
+    <input type="file" id="fileInput" multiple accept="video/*,.m3u,.m3u8" style="display: none;">
+
+    <script src="script.js"></script>
+</body>
+</html>

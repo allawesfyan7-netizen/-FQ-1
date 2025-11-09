@@ -1,0 +1,1662 @@
+
+// تطبيق المشغل FQ&1 - مشغل M3U وIPTV الهجين المتكامل
+class FQPlayer {
+    constructor() {
+        this.currentScreen = 'homeScreen';
+        this.currentChannel = null;
+        this.currentCategory = 'all';
+        this.channels = {};
+        this.favorites = new Set();
+        this.localFiles = [];
+        this.settings = {
+            autoPlay: true,
+            autoQuality: true,
+            savePosition: true,
+            darkMode: false,
+            themeColor: '#0095ff',
+            volume: 1,
+            autoHLS: true
+        };
+        
+        this.volume = 1;
+        this.isMuted = false;
+        this.isFullscreen = false;
+        this.isPlaying = false;
+        this.currentQuality = 'auto';
+        this.searchActive = false;
+        this.hls = null;
+        this.isLiveStream = false;
+        
+        this.supportedFormats = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm3u', 'm3u8'];
+        this.sampleLogos = [
+            'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=300&h=200&fit=crop',
+            'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=300&h=200&fit=crop',
+            'https://images.unsplash.com/photo-1560415753-0b21b8400a89?w=300&h=200&fit=crop',
+            'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=300&h=200&fit=crop',
+            'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?w=300&h=200&fit=crop'
+        ];
+        
+        this.init();
+    }
+
+    async init() {
+        try {
+            console.log("بدء تهيئة المشغل FQ&1...");
+            
+            await this.simulateLoading();
+            
+            await this.loadSampleData();
+            this.setupNavigation();
+            this.bindEvents();
+            this.setupVideoPlayer();
+            this.loadSettings();
+            this.applyTheme();
+            
+            this.hideLoadingScreen();
+            this.setupNavigationIndicator();
+            
+            setTimeout(() => {
+                this.showNotification('success', 'مرحباً في المشغل FQ&1', 'تم تحميل التطبيق بنجاح. استمتع بمشاهدة القنوات والملفات المحلية!');
+            }, 1000);
+            
+            console.log("تم تهيئة المشغل FQ&1 بنجاح");
+        } catch (error) {
+            console.error("حدث خطأ أثناء التهيئة:", error);
+            this.showNotification('error', 'خطأ في التحميل', 'تعذر تحميل التطبيق');
+        }
+    }
+
+    async simulateLoading() {
+        return new Promise((resolve) => {
+            const progressBar = document.getElementById('loadingProgress');
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += 10;
+                if (progressBar) {
+                    progressBar.style.width = `${progress}%`;
+                }
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 200);
+        });
+    }
+
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loadingScreen');
+        const homeScreen = document.getElementById('homeScreen');
+        
+        if (loadingScreen && homeScreen) {
+            loadingScreen.style.display = 'none';
+            homeScreen.classList.add('active');
+            console.log("تم إخفاء شاشة التحميل وإظهار الشاشة الرئيسية");
+        }
+    }
+
+    setupNavigationIndicator() {
+        // تحديث المؤشر بعد تحميل DOM
+        setTimeout(() => {
+            this.updateNavIndicator();
+        }, 100);
+    }
+
+    async loadSampleData() {
+        console.log("جاري تحميل البيانات...");
+        
+        // قنوات تجريبية مع رواقع حقيقية للاختبار
+        this.channels = {
+            1: { 
+                id: 1, 
+                name: 'قناة MBC 1 HD', 
+                categories: ['live', 'entertainment'], 
+                url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8', 
+                logo: this.sampleLogos[0], 
+                isLive: true,
+                quality: 'HD',
+                description: 'القناة الأولى للترفيه العائلي'
+            },
+            2: { 
+                id: 2, 
+                name: 'قناة beIN Sports HD', 
+                categories: ['live', 'sports'], 
+                url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 
+                logo: this.sampleLogos[1], 
+                isLive: true,
+                quality: 'HD',
+                description: 'أفضل البطولات الرياضية'
+            },
+            3: { 
+                id: 3, 
+                name: 'قناة CNN International', 
+                categories: ['live', 'news'], 
+                url: 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8', 
+                logo: this.sampleLogos[2], 
+                isLive: true,
+                quality: 'HD',
+                description: 'أخبار العالم على مدار الساعة'
+            },
+            4: { 
+                id: 4, 
+                name: 'قناة Disney Arabic', 
+                categories: ['kids'], 
+                url: 'https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8', 
+                logo: this.sampleLogos[3], 
+                isLive: false,
+                quality: 'SD',
+                description: 'أفضل برامج الأطفال'
+            },
+            5: { 
+                id: 5, 
+                name: 'قناة Mazzika', 
+                categories: ['music'], 
+                url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8', 
+                logo: this.sampleLogos[4], 
+                isLive: false,
+                quality: 'SD',
+                description: 'أحدث الأغاني العربية'
+            }
+        };
+
+        this.updateFeaturedChannels();
+        this.updateNewChannels();
+        this.scanLocalFiles();
+        
+        console.log("تم تحميل البيانات بنجاح");
+    }
+
+    setupNavigation() {
+        console.log("جاري إعداد التنقل...");
+        
+        document.querySelectorAll('.nav-item').forEach(navItem => {
+            navItem.addEventListener('click', (e) => {
+                const screen = e.currentTarget.dataset.screen;
+                this.switchScreen(screen);
+                this.updateActiveNav(navItem);
+            });
+        });
+
+        // إضافة مستمعي الأحداث لأزرار العودة
+        this.setupBackButtons();
+    }
+
+    setupBackButtons() {
+        // أزرار العودة من الشاشات المختلفة
+        const backButtons = [
+            { id: 'channelsBackBtn', screen: 'homeScreen' },
+            { id: 'favoritesBackBtn', screen: 'homeScreen' },
+            { id: 'settingsBackBtn', screen: 'homeScreen' },
+            { id: 'localFilesBackBtn', screen: 'homeScreen' },
+            { id: 'backBtn', screen: 'homeScreen' },
+            { id: 'mobileBack', screen: 'homeScreen' }
+        ];
+
+        backButtons.forEach(button => {
+            const element = document.getElementById(button.id);
+            if (element) {
+                element.addEventListener('click', () => {
+                    if (button.id === 'backBtn' || button.id === 'mobileBack') {
+                        this.closePlayer();
+                    } else {
+                        this.switchScreen(button.screen);
+                    }
+                });
+            }
+        });
+    }
+
+    bindEvents() {
+        console.log("جاري ربط الأحداث...");
+        
+        // أحداث المصادر السريعة
+        document.querySelectorAll('.quick-access-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const action = e.currentTarget.dataset.action;
+                this.handleQuickAction(action, e.currentTarget);
+            });
+        });
+
+        // البحث
+        document.getElementById('searchBtn')?.addEventListener('click', () => this.showSearchPanel());
+        document.getElementById('channelsSearchBtn')?.addEventListener('click', () => this.showSearchPanel());
+        document.getElementById('searchClose')?.addEventListener('click', () => this.hideSearchPanel());
+        document.getElementById('searchClear')?.addEventListener('click', () => {
+            document.getElementById('searchInput').value = '';
+            this.performSearch('');
+        });
+        document.getElementById('searchInput')?.addEventListener('input', (e) => {
+            this.performSearch(e.target.value);
+        });
+
+        // الملفات المحلية
+        document.getElementById('localFilesBtn')?.addEventListener('click', () => this.switchScreen('localFilesScreen'));
+        document.getElementById('selectFolderBtn')?.addEventListener('click', () => this.selectLocalFiles());
+        document.getElementById('refreshLocalFiles')?.addEventListener('click', () => this.scanLocalFiles());
+        document.getElementById('scanVideos')?.addEventListener('click', () => this.scanLocalFiles());
+
+        // الإعدادات
+        document.getElementById('refreshBtn')?.addEventListener('click', () => this.refreshChannels());
+        document.getElementById('viewAllChannels')?.addEventListener('click', () => this.switchScreen('channelsScreen'));
+        document.getElementById('refreshNew')?.addEventListener('click', () => this.updateNewChannels());
+        document.getElementById('externalUrlBtn')?.addEventListener('click', () => this.showUrlModal());
+        document.getElementById('clearStorage')?.addEventListener('click', () => this.clearStorage());
+        document.getElementById('exportSettings')?.addEventListener('click', () => this.exportSettings());
+
+        // النماذج
+        document.getElementById('urlModalClose')?.addEventListener('click', () => this.hideUrlModal());
+        document.getElementById('urlModalCancel')?.addEventListener('click', () => this.hideUrlModal());
+        document.getElementById('urlModalPlay')?.addEventListener('click', () => this.playExternalUrl());
+        document.getElementById('qualityModalClose')?.addEventListener('click', () => this.hideQualityModal());
+        document.getElementById('qualityModalApply')?.addEventListener('click', () => this.applyQualitySettings());
+        document.getElementById('notificationClose')?.addEventListener('click', () => this.hideNotification());
+
+        // خيارات الجودة
+        document.querySelectorAll('.quality-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                this.selectQualityOption(e.currentTarget);
+            });
+        });
+
+        // إعدادات التبديل
+        document.getElementById('autoQuality')?.addEventListener('change', (e) => this.updateSetting('autoQuality', e.target.checked));
+        document.getElementById('autoPlay')?.addEventListener('change', (e) => this.updateSetting('autoPlay', e.target.checked));
+        document.getElementById('savePosition')?.addEventListener('change', (e) => this.updateSetting('savePosition', e.target.checked));
+        document.getElementById('darkMode')?.addEventListener('change', (e) => this.updateSetting('darkMode', e.target.checked));
+        document.getElementById('autoHLS')?.addEventListener('change', (e) => this.updateSetting('autoHLS', e.target.checked));
+
+        // ألوان السمات
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                this.selectColorOption(e.currentTarget);
+            });
+        });
+
+        // إضافة مستمع حدث للنقر خارج النماذج
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                this.hideUrlModal();
+                this.hideQualityModal();
+            }
+        });
+
+        console.log("تم ربط الأحداث بنجاح");
+    }
+
+    setupVideoPlayer() {
+        console.log("جاري إعداد مشغل الفيديو...");
+        
+        this.videoPlayer = document.getElementById('videoPlayer');
+        
+        if (!this.videoPlayer) {
+            console.error("لم يتم العثور على عنصر الفيديو");
+            return;
+        }
+        
+        this.playPauseBtn = document.getElementById('playPauseBtn');
+        this.progressFill = document.getElementById('progressFill');
+        this.progressHandle = document.getElementById('progressHandle');
+        this.currentTimeEl = document.getElementById('currentTime');
+        this.totalTimeEl = document.getElementById('totalTime');
+        this.volumeBtn = document.getElementById('volumeBtn');
+        this.volumeSlider = document.getElementById('volumeSlider');
+        this.favoriteBtn = document.getElementById('favoriteBtn');
+        this.fullscreenBtn = document.getElementById('fullscreenBtn');
+        this.previousChannelBtn = document.getElementById('previousChannel');
+        this.nextChannelBtn = document.getElementById('nextChannel');
+        this.rewindBtn = document.getElementById('rewindBtn');
+        this.forwardBtn = document.getElementById('forwardBtn');
+        this.backBtn = document.getElementById('backBtn');
+        this.qualityBtn = document.getElementById('qualityBtn');
+        this.mobilePlayPause = document.getElementById('mobilePlayPause');
+        this.mobileBack = document.getElementById('mobileBack');
+        this.videoLoading = document.getElementById('videoLoading');
+        this.streamInfo = document.getElementById('streamInfo');
+        this.streamQuality = document.getElementById('streamQuality');
+        this.streamBuffer = document.getElementById('streamBuffer');
+
+        this.videoPlayer.volume = this.volume;
+        this.videoPlayer.preload = 'auto';
+
+        // أحداث الفيديو
+        this.videoPlayer.addEventListener('loadstart', () => this.showVideoLoading());
+        this.videoPlayer.addEventListener('canplay', () => this.hideVideoLoading());
+        this.videoPlayer.addEventListener('waiting', () => this.showVideoLoading());
+        this.videoPlayer.addEventListener('playing', () => this.hideVideoLoading());
+        this.videoPlayer.addEventListener('timeupdate', () => this.updateProgress());
+        this.videoPlayer.addEventListener('loadedmetadata', () => this.updateDuration());
+        this.videoPlayer.addEventListener('ended', () => this.videoEnded());
+        this.videoPlayer.addEventListener('error', (e) => this.handleVideoError(e));
+        this.videoPlayer.addEventListener('play', () => this.onPlay());
+        this.videoPlayer.addEventListener('pause', () => this.onPause());
+        this.videoPlayer.addEventListener('progress', () => this.updateBuffer());
+        this.videoPlayer.addEventListener('ratechange', () => this.updatePlaybackRate());
+
+        // أحداث التحكم
+        this.playPauseBtn?.addEventListener('click', () => this.togglePlayPause());
+        this.mobilePlayPause?.addEventListener('click', () => this.togglePlayPause());
+        this.volumeBtn?.addEventListener('click', () => this.toggleMute());
+        this.volumeSlider?.addEventListener('input', (e) => this.setVolume(e.target.value));
+        this.favoriteBtn?.addEventListener('click', () => this.toggleCurrentFavorite());
+        this.fullscreenBtn?.addEventListener('click', () => this.toggleFullscreen());
+        this.previousChannelBtn?.addEventListener('click', () => this.playPreviousChannel());
+        this.nextChannelBtn?.addEventListener('click', () => this.playNextChannel());
+        this.rewindBtn?.addEventListener('click', () => this.seekBackward());
+        this.forwardBtn?.addEventListener('click', () => this.seekForward());
+        this.backBtn?.addEventListener('click', () => this.closePlayer());
+        this.mobileBack?.addEventListener('click', () => this.closePlayer());
+        this.qualityBtn?.addEventListener('click', () => this.showQualityModal());
+
+        // شريط التقدم
+        const progressBar = document.getElementById('progressBar');
+        if (progressBar) {
+            progressBar.addEventListener('click', (e) => this.seek(e));
+            progressBar.addEventListener('touchstart', (e) => this.handleTouchSeek(e));
+            progressBar.addEventListener('touchmove', (e) => this.handleTouchSeek(e));
+        }
+
+        // التحكم باللمس
+        this.videoPlayer.addEventListener('touchstart', () => this.handleVideoTouch());
+        this.videoPlayer.addEventListener('dblclick', () => this.toggleFullscreen());
+
+        // إضافة اختصارات لوحة المفاتيح
+        this.setupKeyboardShortcuts();
+
+        console.log("تم إعداد مشغل الفيديو بنجاح");
+    }
+
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            if (this.currentScreen !== 'playerScreen') return;
+
+            switch(e.key) {
+                case ' ':
+                case 'k':
+                    e.preventDefault();
+                    this.togglePlayPause();
+                    break;
+                case 'f':
+                    e.preventDefault();
+                    this.toggleFullscreen();
+                    break;
+                case 'm':
+                    e.preventDefault();
+                    this.toggleMute();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    this.seekBackward();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    this.seekForward();
+                    break;
+                case 'Escape':
+                    if (this.isFullscreen) {
+                        this.toggleFullscreen();
+                    }
+                    break;
+            }
+        });
+    }
+
+    handleQuickAction(action, element) {
+        document.querySelectorAll('.quick-access-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        element.classList.add('active');
+        this.currentCategory = action;
+        
+        if (action === 'favorites') {
+            this.switchScreen('favoritesScreen');
+        } else if (action === 'local') {
+            this.switchScreen('localFilesScreen');
+        } else if (action === 'all') {
+            this.switchScreen('homeScreen');
+        } else {
+            this.updateChannelsByCategory(action);
+        }
+    }
+
+    switchScreen(screenName) {
+        console.log(`التبديل إلى الشاشة: ${screenName}`);
+        
+        // إخفاء جميع الشاشات
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+
+        // إظهار الشاشة المطلوبة
+        const targetScreen = document.getElementById(screenName);
+        if (targetScreen) {
+            targetScreen.classList.add('active');
+            this.currentScreen = screenName;
+            
+            // تحميل المحتوى المناسب للشاشة
+            if (screenName === 'channelsScreen') {
+                this.updateAllChannelsScreen();
+            } else if (screenName === 'favoritesScreen') {
+                this.updateFavoritesScreen();
+            } else if (screenName === 'localFilesScreen') {
+                this.updateLocalFilesScreen();
+            }
+        }
+        
+        this.hideSearchPanel();
+        this.updateNavIndicator();
+    }
+
+    updateActiveNav(activeNav) {
+        document.querySelectorAll('.nav-item').forEach(nav => {
+            nav.classList.remove('active');
+        });
+        activeNav.classList.add('active');
+        this.updateNavIndicator();
+    }
+
+    updateNavIndicator() {
+        const indicator = document.querySelector('.nav-indicator');
+        const activeNav = document.querySelector('.nav-item.active');
+        
+        if (activeNav && indicator) {
+            const navRect = activeNav.getBoundingClientRect();
+            const navBarRect = document.querySelector('.bottom-nav').getBoundingClientRect();
+            
+            indicator.style.width = `${navRect.width}px`;
+            indicator.style.left = `${navRect.left - navBarRect.left}px`;
+        }
+    }
+
+    updateFeaturedChannels() {
+        const featuredGrid = document.getElementById('featuredChannels');
+        if (!featuredGrid) return;
+        
+        featuredGrid.innerHTML = '';
+
+        const featuredChannels = Object.values(this.channels)
+            .filter(channel => channel.quality === 'HD' && channel.isLive)
+            .slice(0, 6);
+        
+        featuredChannels.forEach(channel => {
+            const channelElement = this.createChannelElement(channel);
+            featuredGrid.appendChild(channelElement);
+        });
+    }
+
+    updateNewChannels() {
+        const newGrid = document.getElementById('newChannels');
+        if (!newGrid) return;
+        
+        newGrid.innerHTML = '';
+
+        const newChannels = Object.values(this.channels)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 4);
+        
+        newChannels.forEach(channel => {
+            const channelElement = this.createChannelElement(channel);
+            newGrid.appendChild(channelElement);
+        });
+
+        this.showNotification('info', 'تم التحديث', 'تم تحديث أحدث القنوات');
+    }
+
+    updateAllChannelsScreen() {
+        const channelsGrid = document.getElementById('channelsGrid');
+        if (!channelsGrid) return;
+        
+        channelsGrid.innerHTML = '';
+
+        Object.values(this.channels).forEach(channel => {
+            const channelElement = this.createChannelElement(channel);
+            channelsGrid.appendChild(channelElement);
+        });
+    }
+
+    updateFavoritesScreen() {
+        const favoritesGrid = document.getElementById('favoritesGrid');
+        if (!favoritesGrid) return;
+        
+        favoritesGrid.innerHTML = '';
+
+        if (this.favorites.size === 0) {
+            favoritesGrid.innerHTML = '<div class="empty-state"><i class="fas fa-heart"></i><h3>لا توجد قنوات في المفضلة</h3><p>اضغط على زر القلب لإضافة قنوات إلى المفضلة</p></div>';
+            return;
+        }
+
+        this.favorites.forEach(channelId => {
+            const channel = this.channels[channelId];
+            if (channel) {
+                const channelElement = this.createChannelElement(channel);
+                favoritesGrid.appendChild(channelElement);
+            }
+        });
+    }
+
+    updateLocalFilesScreen() {
+        const filesGrid = document.getElementById('localFilesGrid');
+        const emptyState = document.getElementById('localFilesEmpty');
+        
+        if (!filesGrid || !emptyState) return;
+        
+        filesGrid.innerHTML = '';
+
+        if (this.localFiles.length === 0) {
+            emptyState.style.display = 'block';
+            return;
+        }
+
+        emptyState.style.display = 'none';
+
+        this.localFiles.forEach(file => {
+            const fileElement = this.createFileElement(file);
+            filesGrid.appendChild(fileElement);
+        });
+
+        this.updateStorageInfo();
+    }
+
+    createChannelElement(channel) {
+        const div = document.createElement('div');
+        div.className = `channel-card ${channel.isLive ? 'live' : ''} ${this.favorites.has(channel.id) ? 'favorite' : ''}`;
+        div.dataset.channelId = channel.id;
+        
+        div.innerHTML = `
+            <div class="channel-thumbnail">
+                <img src="${channel.logo}" alt="${channel.name}" onerror="this.style.display='none'">
+                <i class="fas fa-tv" style="display: ${channel.logo ? 'none' : 'flex'}"></i>
+            </div>
+            <div class="channel-info">
+                <h4 class="channel-name">${channel.name}</h4>
+                <div class="channel-meta">
+                    <span class="channel-quality">${channel.quality}</span>
+                    <span>${channel.categories.join(', ')}</span>
+                </div>
+            </div>
+        `;
+
+        div.addEventListener('click', () => {
+            this.playChannel(channel);
+        });
+
+        return div;
+    }
+
+    createFileElement(file) {
+        const div = document.createElement('div');
+        div.className = 'file-card';
+        div.dataset.fileId = file.id;
+        
+        div.innerHTML = `
+            <div class="file-thumbnail">
+                <i class="fas fa-film"></i>
+            </div>
+            <div class="file-info">
+                <h4 class="file-name">${file.name}</h4>
+                <div class="file-meta">
+                    <span class="file-size">${this.formatFileSize(file.size)}</span>
+                    <span>${file.duration || ''}</span>
+                </div>
+            </div>
+        `;
+
+        div.addEventListener('click', () => {
+            this.playLocalFile(file);
+        });
+
+        return div;
+    }
+
+    playChannel(channel) {
+        this.currentChannel = channel;
+        this.isLiveStream = channel.isLive;
+        
+        this.showVideoLoading();
+        this.setupStreamInfo();
+        
+        // إيقاف أي بث HLS سابق
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
+        const playerChannelTitle = document.getElementById('playerChannelTitle');
+        if (playerChannelTitle) playerChannelTitle.textContent = channel.name;
+        
+        const backdrop = document.querySelector('.player-backdrop');
+        if (channel.logo && backdrop) {
+            backdrop.style.backgroundImage = `url(${channel.logo})`;
+        }
+        
+        this.switchScreen('playerScreen');
+        this.updateFavoriteButton();
+        
+        // تحديد نوع المصدر واختيار طريقة التشغيل المناسبة
+        if (channel.url.includes('.m3u8') && this.settings.autoHLS && Hls.isSupported()) {
+            this.playHLSStream(channel.url);
+        } else if (channel.url.includes('.m3u8') || channel.url.includes('.m3u')) {
+            this.handleM3UPlaylist(channel.url);
+        } else {
+            this.playDirectVideo(channel.url);
+        }
+    }
+
+    playHLSStream(url) {
+        console.log('تشغيل تدفق HLS:', url);
+        
+        this.hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90
+        });
+
+        this.hls.loadSource(url);
+        this.hls.attachMedia(this.videoPlayer);
+
+        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            console.log('تم تحليل الملف الرئيسي HLS');
+            if (this.settings.autoPlay) {
+                this.videoPlayer.play().catch(e => {
+                    console.error('خطأ في تشغيل HLS:', e);
+                    this.showNotification('error', 'خطأ في التشغيل', 'تعذر تشغيل تدفق HLS');
+                });
+            }
+        });
+
+        this.hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+            this.updateStreamQuality(data.details);
+        });
+
+        this.hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('خطأ HLS:', data);
+            if (data.fatal) {
+                switch(data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                        this.showNotification('error', 'خطأ في الشبكة', 'تعذر تحميل تدفق HLS');
+                        break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                        this.showNotification('error', 'خطأ في الوسائط', 'تعذر فك تشفير تدفق HLS');
+                        break;
+                    default:
+                        this.showNotification('error', 'خطأ في التشغيل', 'تعذر تشغيل تدفق HLS');
+                        break;
+                }
+            }
+        });
+    }
+
+    playDirectVideo(url) {
+        console.log('تشغيل فيديو مباشر:', url);
+        
+        this.videoPlayer.src = url;
+        this.videoPlayer.load();
+
+        if (this.settings.autoPlay) {
+            this.videoPlayer.play().catch(e => {
+                console.error('خطأ في التشغيل المباشر:', e);
+                this.showNotification('error', 'خطأ في التشغيل', 'تعذر تشغيل الفيديو');
+            });
+        }
+    }
+
+    handleM3UPlaylist(url) {
+        console.log('معالجة قائمة تشغيل M3U:', url);
+        
+        // محاولة تحميل قائمة التشغيل M3U
+        fetch(url)
+            .then(response => response.text())
+            .then(data => {
+                const lines = data.split('\n');
+                let streamUrl = null;
+                
+                // البحث عن رابط البث في ملف M3U
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line && !line.startsWith('#') && (line.startsWith('http') || line.startsWith('https'))) {
+                        streamUrl = line;
+                        break;
+                    }
+                }
+                
+                if (streamUrl) {
+                    if (streamUrl.includes('.m3u8') && this.settings.autoHLS && Hls.isSupported()) {
+                        this.playHLSStream(streamUrl);
+                    } else {
+                        this.playDirectVideo(streamUrl);
+                    }
+                } else {
+                    throw new Error('لم يتم العثور على رابط بث في ملف M3U');
+                }
+            })
+            .catch(error => {
+                console.error('خطأ في تحميل M3U:', error);
+                this.showNotification('error', 'خطأ في التشغيل', 'تعذر تحميل قائمة التشغيل M3U');
+            });
+    }
+
+    setupStreamInfo() {
+        if (this.streamInfo) {
+            this.streamInfo.classList.add('show');
+        }
+    }
+
+    updateStreamQuality(details) {
+        if (this.streamQuality && details) {
+            const width = details.width || 'غير معروف';
+            const height = details.height || 'غير معروف';
+            this.streamQuality.textContent = `جودة: ${width}x${height}`;
+        }
+    }
+
+    updateBuffer() {
+        if (this.videoPlayer.buffered.length > 0 && this.videoPlayer.duration > 0) {
+            const bufferedEnd = this.videoPlayer.buffered.end(this.videoPlayer.buffered.length - 1);
+            const bufferPercent = (bufferedEnd / this.videoPlayer.duration) * 100;
+            
+            if (this.streamBuffer) {
+                this.streamBuffer.textContent = `مخزن مؤقت: ${Math.round(bufferPercent)}%`;
+            }
+        }
+    }
+
+    updatePlaybackRate() {
+        // يمكن إضافة معلومات عن معدل التشغيل هنا إذا لزم الأمر
+    }
+
+    playLocalFile(file) {
+        this.currentChannel = {
+            id: 'local-' + file.id,
+            name: file.name,
+            url: file.url,
+            isLive: false,
+            quality: 'Local'
+        };
+
+        this.isLiveStream = false;
+        this.hideStreamInfo();
+
+        this.showVideoLoading();
+        
+        if (file.url.startsWith('blob:')) {
+            this.videoPlayer.src = file.url;
+        } else {
+            this.videoPlayer.src = URL.createObjectURL(file.file);
+        }
+        
+        const playerChannelTitle = document.getElementById('playerChannelTitle');
+        if (playerChannelTitle) playerChannelTitle.textContent = file.name;
+        
+        const backdrop = document.querySelector('.player-backdrop');
+        if (backdrop) {
+            backdrop.style.backgroundImage = 'none';
+        }
+        
+        this.switchScreen('playerScreen');
+        this.updateFavoriteButton();
+        
+        if (this.settings.autoPlay) {
+            this.videoPlayer.play().catch(e => {
+                console.error('خطأ في التشغيل:', e);
+                this.showNotification('error', 'خطأ في التشغيل', 'تعذر تشغيل الملف');
+            });
+        }
+    }
+
+    hideStreamInfo() {
+        if (this.streamInfo) {
+            this.streamInfo.classList.remove('show');
+        }
+    }
+
+    async scanLocalFiles() {
+        this.showNotification('info', 'مسح الملفات', 'جاري البحث عن ملفات الفيديو...');
+        
+        try {
+            if ('showDirectoryPicker' in window) {
+                const directoryHandle = await window.showDirectoryPicker();
+                this.localFiles = await this.scanDirectory(directoryHandle);
+            } else {
+                document.getElementById('fileInput').click();
+            }
+            
+            this.updateLocalFilesScreen();
+            this.showNotification('success', 'تم المسح', `تم العثور على ${this.localFiles.length} ملف فيديو`);
+        } catch (error) {
+            console.error('خطأ في مسح الملفات:', error);
+            this.showNotification('error', 'خطأ في المسح', 'تعذر الوصول إلى الملفات المحلية');
+        }
+    }
+
+    async scanDirectory(directoryHandle) {
+        const files = [];
+        
+        for await (const entry of directoryHandle.values()) {
+            if (entry.kind === 'file') {
+                const file = await entry.getFile();
+                const extension = file.name.split('.').pop().toLowerCase();
+                
+                if (this.supportedFormats.includes(extension)) {
+                    files.push({
+                        id: 'file-' + files.length,
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        file: file,
+                        url: URL.createObjectURL(file),
+                        lastModified: file.lastModified
+                    });
+                }
+            } else if (entry.kind === 'directory') {
+                const subFiles = await this.scanDirectory(entry);
+                files.push(...subFiles);
+            }
+        }
+        
+        return files;
+    }
+
+    selectLocalFiles() {
+        document.getElementById('fileInput').click();
+        
+        document.getElementById('fileInput').onchange = (e) => {
+            const files = Array.from(e.target.files);
+            this.localFiles = files.map((file, index) => ({
+                id: 'file-' + index,
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                file: file,
+                url: URL.createObjectURL(file),
+                lastModified: file.lastModified
+            }));
+            
+            this.updateLocalFilesScreen();
+            this.showNotification('success', 'تم التحميل', `تم تحميل ${files.length} ملف`);
+        };
+    }
+
+    updateStorageInfo() {
+        const storageFill = document.getElementById('storageFill');
+        const storageText = document.getElementById('storageText');
+        
+        if (!storageFill || !storageText) return;
+        
+        const totalSize = this.localFiles.reduce((sum, file) => sum + file.size, 0);
+        const usedPercentage = Math.min((totalSize / (1024 * 1024 * 1024)) * 100, 100);
+        
+        storageFill.style.width = `${usedPercentage}%`;
+        storageText.textContent = `مستخدام التخزين: ${this.formatFileSize(totalSize)} (${usedPercentage.toFixed(1)}%)`;
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
+        
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    showVideoLoading() {
+        if (this.videoLoading) {
+            this.videoLoading.classList.add('show');
+        }
+    }
+
+    hideVideoLoading() {
+        if (this.videoLoading) {
+            this.videoLoading.classList.remove('show');
+        }
+    }
+
+    togglePlayPause() {
+        if (this.videoPlayer.paused) {
+            this.videoPlayer.play().catch(e => {
+                console.error('خطأ في التشغيل:', e);
+            });
+        } else {
+            this.videoPlayer.pause();
+        }
+    }
+
+    onPlay() {
+        this.isPlaying = true;
+        this.updatePlayPauseIcon();
+        document.querySelector('.player-container').classList.add('video-playing');
+    }
+
+    onPause() {
+        this.isPlaying = false;
+        this.updatePlayPauseIcon();
+        document.querySelector('.player-container').classList.remove('video-playing');
+    }
+
+    updatePlayPauseIcon() {
+        const icons = document.querySelectorAll('#playPauseBtn i, #mobilePlayPause i');
+        icons.forEach(icon => {
+            icon.className = this.isPlaying ? 'fas fa-pause' : 'fas fa-play';
+        });
+    }
+
+    updateProgress() {
+        if (this.videoPlayer.duration) {
+            const progress = (this.videoPlayer.currentTime / this.videoPlayer.duration) * 100;
+            
+            if (this.progressFill) this.progressFill.style.width = `${progress}%`;
+            if (this.progressHandle) this.progressHandle.style.left = `${progress}%`;
+            
+            if (this.currentTimeEl) this.currentTimeEl.textContent = this.formatTime(this.videoPlayer.currentTime);
+        }
+    }
+
+    updateDuration() {
+        if (this.totalTimeEl && this.videoPlayer.duration) {
+            this.totalTimeEl.textContent = this.formatTime(this.videoPlayer.duration);
+        }
+    }
+
+    formatTime(seconds) {
+        if (isNaN(seconds)) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    seek(e) {
+        const progressBar = document.getElementById('progressBar');
+        if (!progressBar) return;
+        
+        const rect = progressBar.getBoundingClientRect();
+        const clickPosition = e.clientX - rect.left;
+        const progressBarWidth = rect.width;
+        const percentage = Math.max(0, Math.min(1, clickPosition / progressBarWidth));
+        
+        this.videoPlayer.currentTime = percentage * this.videoPlayer.duration;
+    }
+
+    handleTouchSeek(e) {
+        e.preventDefault();
+        const progressBar = document.getElementById('progressBar');
+        if (!progressBar) return;
+        
+        const rect = progressBar.getBoundingClientRect();
+        const touch = e.touches[0];
+        const touchPosition = touch.clientX - rect.left;
+        const progressBarWidth = rect.width;
+        const percentage = Math.max(0, Math.min(1, touchPosition / progressBarWidth));
+        
+        this.videoPlayer.currentTime = percentage * this.videoPlayer.duration;
+    }
+
+    seekForward() {
+        this.videoPlayer.currentTime += 10;
+        this.showQuickSeekNotification('+10s');
+    }
+
+    seekBackward() {
+        this.videoPlayer.currentTime = Math.max(0, this.videoPlayer.currentTime - 10);
+        this.showQuickSeekNotification('-10s');
+    }
+
+    showQuickSeekNotification(time) {
+        const existingNotification = document.querySelector('.quick-seek-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.className = 'quick-seek-notification';
+        notification.textContent = time;
+        notification.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 100;
+            pointer-events: none;
+        `;
+        
+        document.querySelector('.player-container').appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 1000);
+    }
+
+    setVolume(value) {
+        this.volume = value / 100;
+        this.videoPlayer.volume = this.volume;
+        this.updateVolumeIcon();
+    }
+
+    toggleMute() {
+        this.videoPlayer.muted = !this.videoPlayer.muted;
+        this.updateVolumeIcon();
+    }
+
+    updateVolumeIcon() {
+        if (!this.volumeBtn) return;
+        
+        const icon = this.volumeBtn.querySelector('i');
+        if (this.videoPlayer.muted || this.videoPlayer.volume === 0) {
+            icon.className = 'fas fa-volume-mute';
+        } else if (this.videoPlayer.volume < 0.5) {
+            icon.className = 'fas fa-volume-down';
+        } else {
+            icon.className = 'fas fa-volume-up';
+        }
+    }
+
+    toggleCurrentFavorite() {
+        if (this.currentChannel && this.currentChannel.id && !this.currentChannel.id.startsWith('local-')) {
+            this.toggleFavorite(this.currentChannel.id);
+            this.updateFavoriteButton();
+        } else {
+            this.showNotification('info', 'المفضلة', 'لا يمكن إضافة الفيديوهات المحلية إلى المفضلة');
+        }
+    }
+
+    toggleFavorite(channelId) {
+        if (this.favorites.has(channelId)) {
+            this.favorites.delete(channelId);
+            this.showNotification('success', 'تمت الإزالة', 'تمت إزالة القناة من المفضلة');
+        } else {
+            this.favorites.add(channelId);
+            this.showNotification('success', 'تمت الإضافة', 'تمت إضافة القناة إلى المفضلة');
+        }
+        
+        this.updateFavoritesScreen();
+        this.saveSettings();
+    }
+
+    updateFavoriteButton() {
+        if (!this.currentChannel || !this.favoriteBtn) return;
+        
+        const isFavorite = this.favorites.has(this.currentChannel.id);
+        const icon = this.favoriteBtn.querySelector('i');
+        icon.className = isFavorite ? 'fas fa-heart' : 'far fa-heart';
+    }
+
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            const playerContainer = document.querySelector('.player-container');
+            if (playerContainer.requestFullscreen) {
+                playerContainer.requestFullscreen();
+            } else if (playerContainer.webkitRequestFullscreen) {
+                playerContainer.webkitRequestFullscreen();
+            } else if (playerContainer.msRequestFullscreen) {
+                playerContainer.msRequestFullscreen();
+            }
+            this.isFullscreen = true;
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+            this.isFullscreen = false;
+        }
+    }
+
+    handleVideoTouch() {
+        const playerContainer = document.querySelector('.player-container');
+        playerContainer.classList.add('touch-active');
+        
+        setTimeout(() => {
+            playerContainer.classList.remove('touch-active');
+        }, 3000);
+    }
+
+    playPreviousChannel() {
+        this.showNotification('info', 'القناة السابقة', 'جاري تحميل القناة السابقة');
+        // يمكن إضافة منطق للقناة السابقة هنا
+    }
+
+    playNextChannel() {
+        this.showNotification('info', 'القناة التالية', 'جاري تحميل القناة التالية');
+        // يمكن إضافة منطق للقناة التالية هنا
+    }
+
+    videoEnded() {
+        this.showNotification('info', 'انتهى الفيديو', 'تم انتهاء تشغيل الفيديو');
+    }
+
+    handleVideoError(e) {
+        console.error('خطأ في تشغيل الفيديو:', e);
+        this.hideVideoLoading();
+        
+        let errorMessage = 'تعذر تشغيل الفيديو';
+        switch (this.videoPlayer.error?.code) {
+            case 1:
+                errorMessage = 'تم إلغاء التحميل';
+                break;
+            case 2:
+                errorMessage = 'خطأ في الشبكة';
+                break;
+            case 3:
+                errorMessage = 'خطأ في فك التشفير';
+                break;
+            case 4:
+                errorMessage = 'الفيديو غير مدعوم';
+                break;
+        }
+        
+        this.showNotification('error', 'خطأ في التشغيل', errorMessage);
+    }
+
+    closePlayer() {
+        // إيقاف تشغيل الفيديو
+        this.videoPlayer.pause();
+        
+        // إيقاف HLS إذا كان قيد التشغيل
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+        
+        // إعادة تعيين مصدر الفيديو
+        this.videoPlayer.src = '';
+        
+        // العودة إلى الشاشة الرئيسية
+        this.switchScreen('homeScreen');
+        
+        // إخفاء معلومات البث
+        this.hideStreamInfo();
+    }
+
+    showSearchPanel() {
+        const searchPanel = document.getElementById('searchPanel');
+        if (searchPanel) {
+            searchPanel.classList.add('active');
+            document.getElementById('searchInput').focus();
+            this.searchActive = true;
+        }
+    }
+
+    hideSearchPanel() {
+        const searchPanel = document.getElementById('searchPanel');
+        if (searchPanel) {
+            searchPanel.classList.remove('active');
+            document.getElementById('searchInput').value = '';
+            this.searchActive = false;
+        }
+    }
+
+    performSearch(query) {
+        const searchResults = document.getElementById('searchResults');
+        if (!searchResults) return;
+        
+        if (!query.trim()) {
+            searchResults.innerHTML = '<div class="empty-search"><i class="fas fa-search"></i><h3>ابدأ بالبحث</h3><p>اكتب اسم القناة أو الفيديو للبحث عنها</p></div>';
+            return;
+        }
+        
+        const channelResults = Object.values(this.channels).filter(channel => 
+            channel.name.toLowerCase().includes(query.toLowerCase())
+        );
+
+        const fileResults = this.localFiles.filter(file =>
+            file.name.toLowerCase().includes(query.toLowerCase())
+        );
+
+        const allResults = [...channelResults, ...fileResults];
+
+        if (allResults.length > 0) {
+            searchResults.innerHTML = '';
+            
+            allResults.forEach(item => {
+                let element;
+                if (item.url) {
+                    element = this.createChannelElement(item);
+                } else {
+                    element = this.createFileElement(item);
+                }
+                searchResults.appendChild(element);
+            });
+        } else {
+            searchResults.innerHTML = '<div class="empty-search"><i class="fas fa-search"></i><h3>لا توجد نتائج</h3><p>لم نعثر على قنوات أو ملفات تطابق بحثك</p></div>';
+        }
+    }
+
+    showUrlModal() {
+        document.getElementById('urlModal').classList.add('active');
+        document.getElementById('videoUrl').focus();
+    }
+
+    hideUrlModal() {
+        document.getElementById('urlModal').classList.remove('active');
+        document.getElementById('videoUrl').value = '';
+        document.getElementById('videoTitle').value = '';
+    }
+
+    playExternalUrl() {
+        const urlInput = document.getElementById('videoUrl');
+        const titleInput = document.getElementById('videoTitle');
+        
+        const url = urlInput.value.trim();
+        const title = titleInput.value.trim() || 'فيديو خارجي';
+        
+        if (!url) {
+            this.showNotification('error', 'خطأ', 'يرجى إدخال رابط الفيديو');
+            return;
+        }
+
+        if (!this.isValidUrl(url)) {
+            this.showNotification('error', 'رابط غير صالح', 'يرجى إدخال رابط فيديو صالح');
+            return;
+        }
+
+        this.currentChannel = {
+            id: 'external',
+            name: title,
+            url: url,
+            isLive: url.includes('.m3u8') || url.includes('.m3u'),
+            quality: 'Auto'
+        };
+
+        this.hideUrlModal();
+        this.playChannel(this.currentChannel);
+    }
+
+    showQualityModal() {
+        document.getElementById('qualityModal').classList.add('active');
+    }
+
+    hideQualityModal() {
+        document.getElementById('qualityModal').classList.remove('active');
+    }
+
+    selectQualityOption(option) {
+        document.querySelectorAll('.quality-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        option.classList.add('active');
+        this.currentQuality = option.dataset.quality;
+    }
+
+    applyQualitySettings() {
+        if (this.hls && this.currentQuality !== 'auto') {
+            const levels = this.hls.levels;
+            const targetLevel = levels.findIndex(level => 
+                level.height === parseInt(this.currentQuality)
+            );
+            
+            if (targetLevel !== -1) {
+                this.hls.currentLevel = targetLevel;
+            }
+        }
+        
+        this.hideQualityModal();
+        this.showNotification('success', 'تم التطبيق', `تم ضبط الجودة على: ${this.getQualityName(this.currentQuality)}`);
+    }
+
+    getQualityName(quality) {
+        const qualities = {
+            'auto': 'تلقائي',
+            '1080': '1080p (Full HD)',
+            '720': '720p (HD)',
+            '480': '480p (SD)'
+        };
+        return qualities[quality] || quality;
+    }
+
+    selectColorOption(option) {
+        document.querySelectorAll('.color-option').forEach(opt => {
+            opt.classList.remove('active');
+        });
+        option.classList.add('active');
+        
+        const color = option.dataset.color;
+        this.updateSetting('themeColor', color);
+        this.applyTheme();
+    }
+
+    updateSetting(key, value) {
+        this.settings[key] = value;
+        this.saveSettings();
+        
+        if (key === 'darkMode') {
+            this.applyTheme();
+        }
+    }
+
+    applyTheme() {
+        if (this.settings.darkMode) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+        
+        if (this.settings.themeColor) {
+            document.documentElement.style.setProperty('--accent-color', this.settings.themeColor);
+            document.documentElement.style.setProperty('--accent-hover', this.adjustColor(this.settings.themeColor, -20));
+            document.documentElement.style.setProperty('--accent-glow', this.hexToRgba(this.settings.themeColor, 0.4));
+        }
+    }
+
+    adjustColor(hex, percent) {
+        const num = parseInt(hex.slice(1), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        
+        return '#' + (
+            0x1000000 +
+            (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)
+        ).toString(16).slice(1);
+    }
+
+    hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    updateChannelsByCategory(category) {
+        this.showNotification('info', `تصنيف ${category}`, `يتم عرض قنوات ${category}`);
+    }
+
+    refreshChannels() {
+        this.showNotification('info', 'تحديث', 'جاري تحديث القنوات...');
+        setTimeout(() => {
+            this.updateFeaturedChannels();
+            this.updateNewChannels();
+            this.showNotification('success', 'تم التحديث', 'تم تحديث القنوات بنجاح');
+        }, 1000);
+    }
+
+    showNotification(type, title, message) {
+        const notification = document.getElementById('notification');
+        const notificationTitle = document.getElementById('notificationTitle');
+        const notificationMessage = document.getElementById('notificationMessage');
+        const notificationIcon = notification?.querySelector('.notification-icon i');
+        
+        if (!notification || !notificationTitle || !notificationMessage) return;
+        
+        this.hideNotification();
+        
+        setTimeout(() => {
+            notification.className = `notification ${type}`;
+            notificationTitle.textContent = title;
+            notificationMessage.textContent = message;
+            
+            if (notificationIcon) {
+                switch(type) {
+                    case 'success':
+                        notificationIcon.className = 'fas fa-check-circle';
+                        break;
+                    case 'error':
+                        notificationIcon.className = 'fas fa-exclamation-circle';
+                        break;
+                    case 'warning':
+                        notificationIcon.className = 'fas fa-exclamation-triangle';
+                        break;
+                    default:
+                        notificationIcon.className = 'fas fa-info-circle';
+                }
+            }
+            
+            const progressBar = notification.querySelector('.notification-progress');
+            if (progressBar) {
+                progressBar.style.transition = 'none';
+                progressBar.style.transform = 'scaleX(1)';
+            }
+            
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                if (progressBar) {
+                    progressBar.style.transition = 'transform 4s linear';
+                    progressBar.style.transform = 'scaleX(0)';
+                }
+            }, 100);
+            
+            this.notificationTimeout = setTimeout(() => {
+                this.hideNotification();
+            }, 4000);
+        }, 300);
+    }
+
+    hideNotification() {
+        const notification = document.getElementById('notification');
+        if (notification) {
+            notification.classList.add('hiding');
+            setTimeout(() => {
+                notification.classList.remove('show', 'hiding');
+            }, 400);
+            
+            if (this.notificationTimeout) {
+                clearTimeout(this.notificationTimeout);
+            }
+        }
+    }
+
+    isValidUrl(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    loadSettings() {
+        const saved = localStorage.getItem('fqPlayerSettings');
+        if (saved) {
+            try {
+                this.settings = { ...this.settings, ...JSON.parse(saved) };
+            } catch (e) {
+                console.error("خطأ في تحليل الإعدادات المحفوظة:", e);
+            }
+        }
+        
+        const savedFavorites = localStorage.getItem('fqPlayerFavorites');
+        if (savedFavorites) {
+            try {
+                this.favorites = new Set(JSON.parse(savedFavorites));
+            } catch (e) {
+                console.error("خطأ في تحليل المفضلة المحفوظة:", e);
+            }
+        }
+
+        this.applySettingsToUI();
+    }
+
+    applySettingsToUI() {
+        document.getElementById('autoQuality').checked = this.settings.autoQuality;
+        document.getElementById('autoPlay').checked = this.settings.autoPlay;
+        document.getElementById('savePosition').checked = this.settings.savePosition;
+        document.getElementById('darkMode').checked = this.settings.darkMode;
+        document.getElementById('autoHLS').checked = this.settings.autoHLS;
+        
+        const colorOption = document.querySelector(`.color-option[data-color="${this.settings.themeColor}"]`);
+        if (colorOption) {
+            document.querySelectorAll('.color-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            colorOption.classList.add('active');
+        }
+    }
+
+    saveSettings() {
+        localStorage.setItem('fqPlayerSettings', JSON.stringify(this.settings));
+        localStorage.setItem('fqPlayerFavorites', JSON.stringify([...this.favorites]));
+    }
+
+    clearStorage() {
+        if (confirm('هل أنت متأكد من مسح جميع البيانات والإعدادات؟')) {
+            localStorage.removeItem('fqPlayerSettings');
+            localStorage.removeItem('fqPlayerFavorites');
+            this.showNotification('success', 'تم المسح', 'تم مسح جميع البيانات والإعدادات');
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        }
+    }
+
+    exportSettings() {
+        const settingsData = {
+            settings: this.settings,
+            favorites: [...this.favorites],
+            exportDate: new Date().toISOString(),
+            version: '1.0.0'
+        };
+        
+        const dataStr = JSON.stringify(settingsData, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `fq-player-settings-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        
+        this.showNotification('success', 'تم التصدير', 'تم حفظ نسخة احتياطية من الإعدادات');
+    }
+}
+
+// تهيئة التطبيق عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("تم تحميل الصفحة، جاري تهيئة المشغل FQ&1...");
+    window.fqPlayer = new FQPlayer();
+});
+
+// دعم وضع ملء الشاشة
+document.addEventListener('fullscreenchange', () => {
+    if (window.fqPlayer) {
+        window.fqPlayer.isFullscreen = !!document.fullscreenElement;
+    }
+});
+
+// منع التمرير الافتراضي على العناصر التفاعلية
+document.addEventListener('touchmove', (e) => {
+    if (e.target.classList.contains('scroll-container')) {
+        return;
+    }
+    e.preventDefault();
+}, { passive: false });
+
+// إضافة أنماط إضافية للتحسينات
+document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.textContent = `
+        .quick-seek-notification {
+            animation: quickSeekFade 1s ease-in-out;
+        }
+        
+        @keyframes quickSeekFade {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        .dark-mode {
+            --primary-bg: #0a0a0a;
+            --secondary-bg: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+        
+        .landscape .player-controls {
+            padding: 10px 15px;
+        }
+        
+        .landscape .control-top {
+            margin-bottom: 10px;
+        }
+        
+        .landscape .control-center {
+            margin-bottom: 10px;
+        }
+        
+        @media (orientation: landscape) and (max-width: 900px) {
+            .player-controls {
+                padding: 8px 12px !important;
+            }
+            
+            .control-btn {
+                width: 35px !important;
+                height: 35px !important;
+                padding: 6px !important;
+            }
+            
+            .play-btn {
+                width: 45px !important;
+                height: 45px !important;
+                padding: 10px !important;
+                font-size: 1.1rem !important;
+            }
+            
+            .channel-title {
+                font-size: 0.9rem !important;
+            }
+            
+            .time-display {
+                font-size: 0.7rem !important;
+                min-width: 35px !important;
+            }
+        }
+        
+        .file-card .file-thumbnail {
+            position: relative;
+        }
+        
+        .file-card .file-thumbnail::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(0,149,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .file-card:hover .file-thumbnail::after {
+            opacity: 1;
+        }
+
+        /* تحسينات للتنقل */
+        .nav-item {
+            transition: all 0.3s ease;
+        }
+
+        .nav-item:active {
+            transform: scale(0.95);
+        }
+
+        /* تحسينات للأداء */
+        .channel-card, .file-card {
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
+        /* تحسينات للوصول */
+        @media (prefers-reduced-motion: reduce) {
+            .channel-card:hover,
+            .file-card:hover,
+            .quick-access-item:hover {
+                transform: none;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+});
